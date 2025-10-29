@@ -593,7 +593,6 @@ class jrdn_helpers
         // --------------------------------------
         // Injury classes to Tool Category
         // --------------------------------------
-
         ref TStringArray toolSmallBlade = new TStringArray;
         toolSmallBlade.Insert("cutArms");
         toolCategoryTags.Insert(toolCategory.TOOL_SMALL_BLADE, toolSmallBlade);
@@ -625,6 +624,74 @@ class jrdn_helpers
 
         traumaOnly.Insert(toolCategory.TOOL_HAMMER);
         traumaOnly.Insert(toolCategory.TOOL_BLUNT);
+    }
+    // ---------------------------------------------------------------------
+    // Bleed selection per toolCategory
+    // ---------------------------------------------------------------------
+    static bool PickBleedSelectionForTool(toolCategory cat, out string outSelection)
+    {
+        outSelection = "";
+
+        // Ensure data initialized
+        BuildInjuryData();
+
+        // Trauma-only categories -> no bleed
+        if (traumaOnly && traumaOnly.Contains(cat))
+        {
+            return false;
+        }
+
+        // Get tag list for category
+        TStringArray tagList = toolCategoryTags.Get(cat);
+        if (!tagList || tagList.Count() == 0)
+        {
+            return false;
+        }
+
+        // Flatten tags into one bleed pool
+        TStringArray bleedPool = new TStringArray;
+        for (int i = 0; i < tagList.Count(); i++)
+        {
+            string tagName = tagList.Get(i);
+            TStringArray selectionPool = injuryPools.Get(tagName);
+            if (selectionPool && selectionPool.Count() > 0)
+            {
+                for (int j = 0; j < selectionPool.Count(); j++)
+                {
+                    bleedPool.Insert(selectionPool.Get(j));
+                }
+            }
+        }
+
+        if (bleedPool.Count() == 0)
+        {
+            return false;
+        }
+
+        // Pick a random selection
+        int idx = Math.RandomInt(0, bleedPool.Count());
+        outSelection = bleedPool.Get(idx);
+        return true;
+    }
+    // ---------------------------------------------------------------------
+    // Apply bleed for tool
+    // ---------------------------------------------------------------------
+    static bool TryApplyBleedForTool(PlayerBase player, toolCategory cat, out string usedSelection)
+    {
+        usedSelection = "";
+
+        if (!player)
+            return false;
+
+        string pick;
+        bool hasBleed = PickBleedSelectionForTool(cat, pick);
+        if (!hasBleed)
+            return false;
+
+        usedSelection = pick;
+
+        // Delegate to existing ApplyBleed(). Caller should ensure server-side gating at callsite.
+        return ApplyBleed(player, usedSelection);
     }
     // ---------------------------------------------------------------------
     // Apply bleed
