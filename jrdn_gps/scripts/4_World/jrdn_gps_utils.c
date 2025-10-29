@@ -539,32 +539,92 @@ class jrdn_helpers
         return false;
     }
     // ---------------------------------------------------------------------
-    // Bleed location based on notPreferredTool
+    // Reusable selection pools for Punish
     // ---------------------------------------------------------------------
-    static string PickBleedSelectionForTool(ItemBase usedTool, array<toolCategory> preferredToolList)
+    protected static ref map<string, ref TStringArray> injuryPools;
+    protected static ref map<int, ref TStringArray> toolCategoryTags;
+    protected static ref set<int> traumaOnly;
+    protected static void BuildInjuryData()
     {
-        toolCategory usedCategory;
-        bool preferred = IsPreferredTool(usedTool, preferredToolList, usedCategory);
-
-        if (preferred)
+        if (injuryPools)
         {
-            return (Math.RandomInt(0, 2) == 0) ? "LeftForeArmRoll" : "RightForeArmRoll";
+            return;
         }
 
-        if (usedCategory == toolCategory.TOOL_AXE || usedCategory == toolCategory.TOOL_SAW)
-        {
-            int r = Math.RandomInt(0, 8);
-            if (r == 0) return "LeftLeg";
-            if (r == 1) return "RightLeg";
-            if (r == 2) return "LeftLegRoll";
-            if (r == 3) return "RightLegRoll";
-            if (r == 4) return "LeftUpLeg";
-            if (r == 5) return "RightUpLeg";
-            if (r == 6) return "LeftFoot";
-            return "RightFoot";
-        }
+        injuryPools   = new map<string, ref TStringArray>;
+        toolCategoryTags = new map<int, ref TStringArray>;
+        traumaOnly = new set<int>;
 
-        return (Math.RandomInt(0, 2) == 0) ? "LeftForeArmRoll" : "RightForeArmRoll";
+        // --------------------------------------
+        // Classing injury
+        // --------------------------------------
+        ref TStringArray cutArms = new TStringArray;
+        cutArms.Insert("LeftForeArmRoll");
+        cutArms.Insert("RightForeArmRoll");
+        cutArms.Insert("LeftArmRoll");
+        cutArms.Insert("RightArmRoll");
+        injuryPools.Insert("cutArms", cutArms);
+
+        ref TStringArray cutLegs = new TStringArray;
+        cutLegs.Insert("LeftLeg");
+        cutLegs.Insert("RightLeg");
+        cutLegs.Insert("LeftLegRoll");
+        cutLegs.Insert("RightLegRoll");
+        cutLegs.Insert("LeftUpLeg");
+        cutLegs.Insert("RightUpLeg");
+        injuryPools.Insert("cutLegs", cutLegs);
+
+        ref TStringArray cutFeet = new TStringArray;
+        cutFeet.Insert("LeftFoot");
+        cutFeet.Insert("RightFoot");
+        injuryPools.Insert("cutFeet", cutFeet);
+
+        ref TStringArray cutToes = new TStringArray;
+        cutToes.Insert("LeftToeBase");
+        cutToes.Insert("RightToeBase");
+        injuryPools.Insert("cutToes", cutToes);
+
+        ref TStringArray cutBody = new TStringArray;
+        cutBody.Insert("Head");
+        cutBody.Insert("Neck");
+        cutBody.Insert("Pelvis");
+        injuryPools.Insert("cutBody", cutBody);
+
+        // --------------------------------------
+        // Injury classes to Tool Category
+        // --------------------------------------
+
+        ref TStringArray toolSmallBlade = new TStringArray;
+        toolSmallBlade.Insert("cutArms");
+        toolCategoryTags.Insert(toolCategory.TOOL_SMALL_BLADE, toolSmallBlade);
+
+        ref TStringArray toolLargeBlade = new TStringArray;
+        toolLargeBlade.Insert("cutArms");
+        toolLargeBlade.Insert("cutLegs");
+        toolLargeBlade.Insert("cutFeet");
+        toolCategoryTags.Insert(toolCategory.TOOL_LARGE_BLADE, toolLargeBlade);
+
+        ref TStringArray toolAxe = new TStringArray;
+        toolAxe.Insert("cutFeet");
+        toolAxe.Insert("cutToes");
+        toolAxe.Insert("cutLegs");
+        toolAxe.Insert("cutBody");
+        toolCategoryTags.Insert(toolCategory.TOOL_AXE, toolAxe);
+
+        ref TStringArray toolSaw = new TStringArray;
+        toolSaw.Insert("cutLegs");
+        toolSaw.Insert("cutFeet");
+        toolCategoryTags.Insert(toolCategory.TOOL_SAW, toolSaw);
+
+        ref TStringArray toolLong = new TStringArray;
+        toolLong.Insert("cutFeet");
+        toolLong.Insert("cutToes");
+        toolLong.Insert("cutLegs");
+        toolLong.Insert("cutBody");
+        toolCategoryTags.Insert(toolCategory.TOOL_LONG, toolLong);
+
+        traumaOnly.Insert(toolCategory.TOOL_HAMMER);
+        traumaOnly.Insert(toolCategory.TOOL_BLUNT);
     }
     // ---------------------------------------------------------------------
     // Apply bleed
