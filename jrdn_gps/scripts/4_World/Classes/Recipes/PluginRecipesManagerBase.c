@@ -3,9 +3,9 @@ modded class PluginRecipesManager
     override void RegisterRecipies()
     {
         super.RegisterRecipies();
-        RegisterRecipe(new cutWires);
+        RegisterRecipe(new salvageWires);
         RegisterRecipe(new salvagePCBCasing);
-        RegisterRecipe(new createWiredPCB);
-        RegisterRecipe(new createGPS);
+        RegisterRecipe(new craftWiredPCB);
+        RegisterRecipe(new craftGPS);
     }
 }

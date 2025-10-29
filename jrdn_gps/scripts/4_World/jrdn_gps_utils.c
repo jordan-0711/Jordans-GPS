@@ -1,34 +1,23 @@
 // -------------------------------------------------------------------------------------------------
-// Shared tools & recipe helpers
+// Maps
 // -------------------------------------------------------------------------------------------------
-
-// -------------------- Tool classification (used by slip/wet logic etc.) --------------------
+// ---------------------------------------------------------------------
+// ENUMs
+// ---------------------------------------------------------------------
 enum toolCategory
 {
     TOOL_SMALL_BLADE,
     TOOL_LARGE_BLADE,
     TOOL_AXE,
-    TOOL_SAW
+    TOOL_SAW,
+    TOOL_HAMMER,
+    TOOL_UTILITY,
+    TOOL_BLUNT,
+    TOOL_LONG
 };
-
-string toolNoun(toolCategory cat)
-{
-    switch (cat)
-    {
-        case toolCategory.TOOL_SMALL_BLADE:
-            return "knife blade";
-        case toolCategory.TOOL_LARGE_BLADE:
-            return "large blade";
-        case toolCategory.TOOL_AXE:
-            return "axe head";
-        case toolCategory.TOOL_SAW:
-            return "saw blade";
-        default:
-            return "blade";
-    }
-    return "blade";
-}
-
+// ---------------------------------------------------------------------
+// toolCategory helper for preferred tool mapping
+// ---------------------------------------------------------------------
 toolCategory GetToolCategory(ItemBase tool)
 {
     if (!tool) return toolCategory.TOOL_SMALL_BLADE;
@@ -71,6 +60,8 @@ toolCategory GetToolCategory(ItemBase tool)
         return toolCategory.TOOL_LARGE_BLADE;
     if (toolName == "OrientalMachete")
         return toolCategory.TOOL_LARGE_BLADE;
+    if (toolName == "Sword")
+        return toolCategory.TOOL_LARGE_BLADE;
     // Axes
     if (toolName == "Hatchet")
         return toolCategory.TOOL_AXE;
@@ -78,96 +69,433 @@ toolCategory GetToolCategory(ItemBase tool)
         return toolCategory.TOOL_AXE;
     if (toolName == "FirefighterAxe")
         return toolCategory.TOOL_AXE;
+    if (toolName == "FirefighterAxe_Black")
+        return toolCategory.TOOL_AXE;
+    if (toolName == "FirefighterAxe_Green")
+        return toolCategory.TOOL_AXE;
+    if (toolName == "Pickaxe")
+        return toolCategory.TOOL_AXE;
+    if (toolName == "Iceaxe")
+        return toolCategory.TOOL_AXE;
     // Saws
     if (toolName == "HandSaw")
         return toolCategory.TOOL_SAW;
     if (toolName == "Hacksaw")
         return toolCategory.TOOL_SAW;
+     // Hammers
+    if (toolName == "Hammer")
+        return toolCategory.TOOL_HAMMER;
+    if (toolName == "MeatTenderizer")
+        return toolCategory.TOOL_HAMMER;
+    if (toolName == "SledgeHammer")
+        return toolCategory.TOOL_HAMMER;
+     // Utility
+    if (toolName == "Screwdriver")
+        return toolCategory.TOOL_UTILITY;
+    if (toolName == "Pliers")
+        return toolCategory.TOOL_UTILITY;
+    if (toolName == "LugWrench")
+        return toolCategory.TOOL_UTILITY;
+    if (toolName == "Wrench")
+        return toolCategory.TOOL_UTILITY;
+    if (toolName == "PipeWrench")
+        return toolCategory.TOOL_UTILITY;
+    if (toolName == "Crowbar")
+        return toolCategory.TOOL_UTILITY;
+    // Blunt
+    if (toolName == "BaseballBat")
+        return toolCategory.TOOL_BLUNT;
+    if (toolName == "BarbedBaseballBat")
+        return toolCategory.TOOL_BLUNT;
+    if (toolName == "NailedBaseballBat")
+        return toolCategory.TOOL_BLUNT;
+    if (toolName == "FryingPan")
+        return toolCategory.TOOL_BLUNT;
+    if (toolName == "Mace")
+        return toolCategory.TOOL_BLUNT;
+    if (toolName == "Pipe")
+        return toolCategory.TOOL_BLUNT;
+    // Long
+    if (toolName == "FarmingHoe")
+        return toolCategory.TOOL_LONG;
+    if (toolName == "Shovel")
+        return toolCategory.TOOL_LONG;
+    if (toolName == "FieldShovel")
+        return toolCategory.TOOL_LONG;
+    if (toolName == "Pitchfork")
+        return toolCategory.TOOL_LONG;
+    if (toolName == "Broom")
+        return toolCategory.TOOL_LONG;
     // Default
     return toolCategory.TOOL_SMALL_BLADE;
 }
-
-// -------------------- Generic recipe helpers --------------------
-class jrdn_gps_utils
+// ---------------------------------------------------------------------
+// Tool noun replacement for Punish Messages
+// ---------------------------------------------------------------------
+string toolNoun(toolCategory cat)
 {
-    // Randomly pick one of two classnames (50/50) and return the roll (0 or 1)
-    static int RandomPickTwo(string a, string b, out string pick)
+    switch (cat)
     {
-        int r = Math.RandomInt(0, 2); // 0..1
-        if (r == 0) pick = a;
-        else        pick = b;
-        return r;
+        case toolCategory.TOOL_SMALL_BLADE:
+            return "knife blade";
+        case toolCategory.TOOL_LARGE_BLADE:
+            return "large blade";
+        case toolCategory.TOOL_AXE:
+            return "axe head";
+        case toolCategory.TOOL_SAW:
+            return "saw blade";
+        default:
+            return "blade";
     }
-
-    // Read inheritance from one source item (health ratio 0..1, wetness 0..1)
-    static void ReadInheritedState(ItemBase src, out float inheritRatio, out float inheritWet)
+    return "blade";
+}
+// -------------------------------------------------------------------------------------------------
+// Shared helpers used on recipes
+// -------------------------------------------------------------------------------------------------
+class jrdn_helpers
+{
+    // ---------------------------------------------------------------------
+    // RandomResults_Single
+    // ---------------------------------------------------------------------
+    static void RandomResults_Single(TStringArray resultPool, out string pickResult)
     {
-        inheritRatio = -1.0;
-        inheritWet   = -1.0;
+        pickResult = "";
 
-        if (!src) return;
+        if (!resultPool || resultPool.Count() == 0)
+            return;
 
-        float srcMax = src.GetMaxHealth("", "");
-        if (srcMax > 0.0)
-            inheritRatio = src.GetHealth("", "") / srcMax;
-
-        inheritWet = src.GetWet();
+        int index = Math.RandomInt(0, resultPool.Count());
+        pickResult = resultPool.Get(index);
     }
-
-    // Apply a stored health ratio & wetness to an item
-    static void ApplyHealthWet(ItemBase item, float inheritRatio, float inheritWet)
+    // ---------------------------------------------------------------------
+    // RandomResults_Multi
+    // ---------------------------------------------------------------------
+    static void RandomResults_Multi(TStringArray resultPool, float pickAmountModifier, out TStringArray pickResult)
     {
-        if (!item) return;
+        if (!pickResult) pickResult = new TStringArray; else pickResult.Clear();
+        if (!resultPool || resultPool.Count() == 0) return;
+        if (pickAmountModifier < 0.0) pickAmountModifier = 0.0;
+        if (pickAmountModifier > 1.0) pickAmountModifier = 1.0;
 
-        if (inheritRatio >= 0.0)
+        int resultPoolCount = resultPool.Count();
+        int maxPossiblePick = Math.Floor(resultPoolCount * pickAmountModifier);
+        if (maxPossiblePick < 1) maxPossiblePick = 1;
+        if (maxPossiblePick > resultPoolCount) maxPossiblePick = resultPoolCount;
+
+        int toPick = Math.RandomInt(1, maxPossiblePick + 1);
+
+        TStringArray pickedResults = new TStringArray;
+        pickedResults.Copy(resultPool);
+
+        for (int i = pickedResults.Count() - 1; i > 0; i--)
         {
-            float outMax = item.GetMaxHealth("", "");
-            if (outMax > 0.0)
+            int j = Math.RandomInt(0, i + 1);
+            string tmp = pickedResults[i];
+            pickedResults[i] = pickedResults[j];
+            pickedResults[j] = tmp;
+        }
+
+        for (int k = 0; k < toPick; k++)
+        {
+            pickResult.Insert(pickedResults.Get(k));
+        }
+    }
+    // ---------------------------------------------------------------------
+    // Read Highest Wetness from ItemBase
+    // ---------------------------------------------------------------------
+    static void ReadWet(array<ItemBase> items, out float wetnessValue_Read)
+    {
+        wetnessValue_Read = -1.0;
+        if (!items) return;
+
+        float wettestItem = -1.0;
+
+        for (int i = 0; i < items.Count(); i++)
+        {
+            ItemBase itemCount = items[i];
+            if (!itemCount) continue;
+
+            float wetItem = itemCount.GetWet(); // 0..1
+            if (wetItem >= 0.0)
             {
-                float outHP = outMax * inheritRatio;
-                item.SetHealth("", "", outHP);
+                if (wettestItem < 0.0)
+                {
+                    wettestItem = wetItem;
+                }
+                else
+                {
+                    if (wetItem > wettestItem)
+                        wettestItem = wetItem;
+                }
+            }
+        }
+        wetnessValue_Read = wettestItem;
+    }
+    // ---------------------------------------------------------------------
+    // Write item wetness
+    // ---------------------------------------------------------------------
+    static void ApplyWet(array<ItemBase> results, float wetnessValue_Write)
+    {
+        if (!results) return;
+        if (wetnessValue_Write < 0.0) return;
+
+        for (int i = 0; i < results.Count(); i++)
+        {
+            ItemBase foundResults = results[i];
+            if (!foundResults) continue;
+            foundResults.SetWet(wetnessValue_Write);
+        }
+    }
+    // ---------------------------------------------------------------------
+    // Read item health
+    // ---------------------------------------------------------------------
+    static void ReadHealth(ItemBase src, out float baseHealth)
+    {
+        baseHealth = -1.0;
+
+        if (!src)
+            return;
+
+        float maxHealth = src.GetMaxHealth("", "");
+        if (maxHealth > 0.0)
+        {
+            float currentHealth = src.GetHealth("", "");
+            baseHealth = currentHealth / maxHealth;
+        }
+    }
+    // ---------------------------------------------------------------------
+    // Write item health
+    // ---------------------------------------------------------------------
+    static void ApplyHealth(ItemBase item, float itemHealth)
+    {
+        if (!item)
+            return;
+
+        if (itemHealth < 0.0)
+            return;
+
+        float maxHealth = item.GetMaxHealth("", "");
+        if (maxHealth <= 0.0)
+            return;
+
+        float applyItemHealth = maxHealth * itemHealth;
+        item.SetHealth("", "", applyItemHealth);
+    }
+    // ---------------------------------------------------------------------
+    // Duplicate item spawn check
+    // ---------------------------------------------------------------------
+    static ItemBase KeepOrSpawnRandomResult(string pickClass, array<ItemBase> results, PlayerBase player, string placeholderClass, array<ItemBase> inheritFromItems, ItemBase healthSource)
+    {
+        if (!GetGame() || !GetGame().IsServer())
+            return null;
+
+        if (pickClass == "")
+            return null;
+
+        if (!results || results.Count() == 0)
+            return null;
+
+        if (!player)
+            return null;
+
+        // --- 1) Keep or spawn
+        ItemBase placeholderItem = results[0];
+        ItemBase finalItem = null;
+
+        if (placeholderItem && placeholderItem.IsKindOf(pickClass))
+        {
+            finalItem = placeholderItem;
+        }
+        else
+        {
+            if (placeholderItem)
+                placeholderItem.Delete();
+
+            finalItem = SpawnAtFeet(pickClass, player);
+        }
+
+        // --- 2) Read inheritance
+        float inheritHealthValue;
+        ReadHealth(healthSource, inheritHealthValue); // -1.0 if invalid
+
+        float inheritWetValue;
+        jrdn_helpers.ReadWet(inheritFromItems, inheritWetValue); // -1.0 if invalid
+
+        // --- 3) Apply inheritance
+        if (finalItem && inheritHealthValue >= 0.0)
+            ApplyHealth(finalItem, inheritHealthValue);
+
+        if (inheritWetValue >= 0.0)
+            jrdn_helpers.ApplyWet(results, inheritWetValue);
+
+        return finalItem;
+    }
+    // ---------------------------------------------------------------------
+    // Spawn RandomResult at feet
+    // ---------------------------------------------------------------------
+    static ItemBase SpawnAtFeet(string className, PlayerBase player)
+    {
+        if (!GetGame() || !GetGame().IsServer())
+            return null;
+
+        if (className == "")
+            return null;
+
+        if (!player)
+            return null;
+
+        vector playerPosition = player.GetPosition();
+
+        // Create on surface to avoid sinking; delete if not an ItemBase.
+        EntityAI createItemSurface = EntityAI.Cast(GetGame().CreateObjectEx(className, playerPosition, ECE_PLACE_ON_SURFACE));
+        ItemBase spawnItemWorld = ItemBase.Cast(createItemSurface);
+
+        if (!spawnItemWorld)
+        {
+            if (createItemSurface)
+                createItemSurface.Delete();
+            return null;
+        }
+
+        return spawnItemWorld;
+    }
+    // ---------------------------------------------------------------------
+    // Ingredient Wetness check for CanDo methods
+    // ---------------------------------------------------------------------
+    static bool CanCombine_WetCheck(ItemBase ingredient0, ItemBase ingredient1)
+    {
+        if (!ingredient0 || !ingredient1)
+            return false;
+
+        float wetThreshold = GameConstants.STATE_DAMP; // "dry enough" threshold (0.05)
+
+        // --- 1. Get each item's category through your existing global lookup
+        toolCategory ingredient0Category = GetToolCategory(ingredient0);
+        toolCategory ingredient1Category = GetToolCategory(ingredient1);
+
+        // --- 2. Test whether either category corresponds to a defined tool
+        bool ingredient0IsTool = (ingredient0Category == toolCategory.TOOL_SMALL_BLADE
+                    || ingredient0Category == toolCategory.TOOL_LARGE_BLADE
+                    || ingredient0Category == toolCategory.TOOL_AXE
+                    || ingredient0Category == toolCategory.TOOL_SAW);
+
+        bool ingredient1IsTool = (ingredient1Category == toolCategory.TOOL_SMALL_BLADE
+                    || ingredient1Category == toolCategory.TOOL_LARGE_BLADE
+                    || ingredient1Category == toolCategory.TOOL_AXE
+                    || ingredient1Category == toolCategory.TOOL_SAW);
+
+        // --- 3. One tool → check only the non-tool
+        if (ingredient0IsTool && !ingredient1IsTool)
+        {
+            float ingredient1_Wetness = ingredient1.GetWet();
+            if (ingredient1_Wetness <= wetThreshold)
+                return true;
+            return false;
+        }
+        if (!ingredient0IsTool && ingredient1IsTool)
+        {
+            float ingredient0_Wetness = ingredient0.GetWet();
+            if (ingredient0_Wetness <= wetThreshold)
+                return true;
+            return false;
+        }
+        // --- 4. Both non-tools → both must be dry
+        float ingredient0_NonToolWetness = ingredient0.GetWet();
+        float ingredient1_NonToolWetness = ingredient1.GetWet();
+
+        if (ingredient0_NonToolWetness <= wetThreshold && ingredient1_NonToolWetness <= wetThreshold)
+            return true;
+
+        return false;
+    }
+    // ---------------------------------------------------------------------
+    // Detect powered ingredients
+    // ---------------------------------------------------------------------
+    static int DetectPoweredIngredient(ItemBase ingredientItem, out ItemBase foundPowerOut)
+    {
+        foundPowerOut = null;
+
+        if (!ingredientItem)
+            return 0;
+
+        EntityAI ingredientAI = EntityAI.Cast(ingredientItem);
+        if (!ingredientAI)
+            return 0;
+
+        if (!ingredientAI.GetInventory())
+            return 0;
+
+        int count = ingredientAI.GetInventory().AttachmentCount();
+        for (int i = 0; i < count; i++)
+        {
+            EntityAI poweredAttachment = ingredientAI.GetInventory().GetAttachmentFromIndex(i);
+            if (!poweredAttachment)
+                continue;
+
+            ItemBase poweredAttachmentFound = ItemBase.Cast(poweredAttachment);
+            if (!poweredAttachmentFound)
+                continue;
+
+            if (poweredAttachmentFound.IsKindOf("Battery9V"))
+            {
+                foundPowerOut = poweredAttachmentFound;
+                return 1;
+            }
+            if (poweredAttachmentFound.IsKindOf("CarBattery"))
+            {
+                foundPowerOut = poweredAttachmentFound;
+                return 2;
+            }
+            if (poweredAttachmentFound.IsKindOf("TruckBattery"))
+            {
+                foundPowerOut = poweredAttachmentFound;
+                return 3;
             }
         }
 
-        if (inheritWet >= 0.0)
-            item.SetWet(inheritWet);
+        return 0;
     }
-
-    // Keep placeholder (if pick matches) or spawn class at player's feet; always apply inheritance.
-    // placeholderClassname: pass the class of the default AddResult (or "" if none).
-    static void KeepOrSpawnResult(string pick, array<ItemBase> results, PlayerBase player, float inheritRatio, float inheritWet, string placeholderClassname)
+    // ---------------------------------------------------------------------
+    // Preferred Recipe Tool
+    // ---------------------------------------------------------------------
+    static bool IsPreferredTool(ItemBase usedTool, array<toolCategory> preferredToolList, out toolCategory usedCategory)
     {
-        ItemBase res0 = null;
-        if (results && results.Count() > 0)
-            res0 = results[0];
+        usedCategory = toolCategory.TOOL_SMALL_BLADE; // default fallback
 
-        // If the placeholder matches the desired class, keep and apply inheritance
-        if (res0 && placeholderClassname != "" && pick == placeholderClassname)
+        if (!usedTool)
+            return false;
+
+        usedCategory = GetToolCategory(usedTool);
+
+        if (!preferredToolList)
+            return false;
+
+        for (int i = 0; i < preferredToolList.Count(); i++)
         {
-            ApplyHealthWet(res0, inheritRatio, inheritWet);
-            return;
+            if (usedCategory == preferredToolList[i])
+                return true;
         }
-
-        // Otherwise, remove the placeholder (if any) and spawn the chosen class
-        if (res0)
-            GetGame().ObjectDelete(res0);
-
-        if (!player) return;
-
-        vector pos = player.GetPosition();
-        EntityAI spawned = GetGame().CreateObjectEx(pick, pos, ECE_PLACE_ON_SURFACE);
-        ApplyHealthWet(ItemBase.Cast(spawned), inheritRatio, inheritWet);
+        return false;
     }
-
-    // Spawn a class at player's feet and return it as ItemBase (or null)
-    static ItemBase SpawnAtFeet(string classname, PlayerBase player)
+    // ---------------------------------------------------------------------
+    // Wrong tool risk modifier
+    // ---------------------------------------------------------------------
+    static float ToolRiskMultiplier(ItemBase usedTool, array<toolCategory> preferredToolList, float preferredMultiplier, float notPreferredMultiplier, out toolCategory usedCategory)
     {
-        if (!player) return null;
-        vector pos = player.GetPosition();
-        return ItemBase.Cast(GetGame().CreateObjectEx(classname, pos, ECE_PLACE_ON_SURFACE));
-    }
+        usedCategory = toolCategory.TOOL_SMALL_BLADE;
 
-    // Drop the item currently in hands (server-safe)
+        if (preferredMultiplier < 0.0) preferredMultiplier = 0.0;
+        if (notPreferredMultiplier < 0.0) notPreferredMultiplier = 0.0;
+
+        bool isPreferred = IsPreferredTool(usedTool, preferredToolList, usedCategory);
+        if (isPreferred)
+            return preferredMultiplier;
+
+        return notPreferredMultiplier;
+    }
+    // ---------------------------------------------------------------------
+    // Drop item if punished
+    // ---------------------------------------------------------------------
     static void DropItemInHands(PlayerBase player)
     {
         if (!player) return;
@@ -175,157 +503,200 @@ class jrdn_gps_utils
         if (inHands && player.GetHumanInventory())
             player.GetHumanInventory().DropEntity(InventoryMode.SERVER, player, inHands);
     }
-
-    // Dryness rule: true if BOTH items are below the given threshold (e.g., STATE_DAMP)
-    static bool IsBothBelowWetThreshold(ItemBase a, ItemBase b, float threshold)
+    // ---------------------------------------------------------------------
+    // Punishment Protection
+    // Only applies to gloves for now
+    // ---------------------------------------------------------------------
+    static bool HasGloveProtection(PlayerBase player, out float mitigation, out ItemBase foundGloves)
     {
-        if (!a || !b) return false;
-        if (a.GetWet() >= threshold) return false;
-        if (b.GetWet() >= threshold) return false;
-        return true;
+        mitigation = 0.0;
+        foundGloves = null;
+        if (!player)
+            return false;
+
+        EntityAI pe = EntityAI.Cast(player);
+        if (!pe || !pe.GetInventory())
+            return false;
+
+        int ac = pe.GetInventory().AttachmentCount();
+        for (int i = 0; i < ac; i++)
+        {
+            EntityAI att = pe.GetInventory().GetAttachmentFromIndex(i);
+            if (!att)
+                continue;
+
+            ItemBase itm = ItemBase.Cast(att);
+            if (!itm)
+                continue;
+
+            if (itm.IsKindOf("Gloves_Base"))
+            {
+                foundGloves = itm;
+                mitigation = 0.5;
+                return true;
+            }
+        }
+        return false;
     }
-
-    // Power detection by type (slot-agnostic)
-    static void DetectPower(ItemBase device, out bool has9V, out bool hasCar, out bool isBaseRadio)
+    // ---------------------------------------------------------------------
+    // Bleed location based on notPreferredTool
+    // ---------------------------------------------------------------------
+    static string PickBleedSelectionForTool(ItemBase usedTool, array<toolCategory> preferredToolList)
     {
-        has9V = false;
-        hasCar = false;
-        isBaseRadio = false;
+        toolCategory usedCategory;
+        bool preferred = IsPreferredTool(usedTool, preferredToolList, usedCategory);
 
-        if (!device || !device.GetInventory()) return;
-
-        isBaseRadio = device.IsKindOf("BaseRadio");
-
-        int ac = device.GetInventory().AttachmentCount();
-        for (int ai = 0; ai < ac; ai++)
+        if (preferred)
         {
-            EntityAI att = device.GetInventory().GetAttachmentFromIndex(ai);
-            if (!att) continue;
-
-            if (att.IsKindOf("Battery9V"))      has9V = true;
-            else if (att.IsKindOf("CarBattery")) hasCar = true;
-            // else if (att.IsKindOf("TruckBattery")) hasCar = true; // if you add it later
+            return (Math.RandomInt(0, 2) == 0) ? "LeftForeArmRoll" : "RightForeArmRoll";
         }
+
+        if (usedCategory == toolCategory.TOOL_AXE || usedCategory == toolCategory.TOOL_SAW)
+        {
+            int r = Math.RandomInt(0, 8);
+            if (r == 0) return "LeftLeg";
+            if (r == 1) return "RightLeg";
+            if (r == 2) return "LeftLegRoll";
+            if (r == 3) return "RightLegRoll";
+            if (r == 4) return "LeftUpLeg";
+            if (r == 5) return "RightUpLeg";
+            if (r == 6) return "LeftFoot";
+            return "RightFoot";
+        }
+
+        return (Math.RandomInt(0, 2) == 0) ? "LeftForeArmRoll" : "RightForeArmRoll";
     }
-
-    // Shock only (no stamina). Drops item in hands and shows a message by wetness/battery type.
-    static void ShockIfPowered(ItemBase source, PlayerBase player)
+    // ---------------------------------------------------------------------
+    // Apply bleed
+    // ---------------------------------------------------------------------
+    static bool ApplyBleed(PlayerBase player, string selection)
     {
-        if (!source || !player || !source.GetInventory()) return;
+        if (!player)
+            return false;
 
-        bool has9V;
-        bool hasCar;
-        bool isBaseRadio;
-        DetectPower(source, has9V, hasCar, isBaseRadio);
+        if (!player.m_BleedingManagerServer)
+            return false;
 
-        if (!(has9V || hasCar)) return;
-
-        float wet = source.GetWet(); // 0..1
-
-        float shockSeverity;
-        if (hasCar) shockSeverity = 30.0;
-        else        shockSeverity = 4.0;
-
-        float shockMultiplier = 1.0;
-
-        if (wet >= GameConstants.STATE_WET)
-        {
-            if (hasCar) shockSeverity = 40.0;
-            else        shockSeverity = 5.0;
-
-            if      (wet < GameConstants.STATE_SOAKING_WET) shockMultiplier = 1.5;
-            else if (wet < GameConstants.STATE_DRENCHED)    shockMultiplier = 1.9;
-            else                                            shockMultiplier = 2.5;
-
-            if (isBaseRadio)
-                shockSeverity = shockSeverity + 15.0;
-        }
-
-        float finalMag = shockSeverity * shockMultiplier;
-        if (finalMag > 60.0) finalMag = 60.0;
-
-        player.AddHealth("", "Shock", -finalMag);
-
-        DropItemInHands(player);
-
-        if (wet >= GameConstants.STATE_WET)
-        {
-            if (isBaseRadio) player.MessageImportant("A severe jolt from the powered, wet base radio zaps you!");
-            else             player.MessageImportant("A strong jolt from the powered, wet device zaps you!");
-        }
-        else
-        {
-            player.MessageImportant("A small jolt from the powered device zaps you.");
-        }
+        return player.m_BleedingManagerServer.AttemptAddBleedingSourceBySelection(selection);
     }
-
-    // Cut-wires utility: transfer wetness to results and evaluate slip chance
-    static void ApplyWetTransferAndSlip(ItemBase source_item, ItemBase tool, array<ItemBase> results, PlayerBase player)
+    // ---------------------------------------------------------------------
+    // PunishShock
+    // ---------------------------------------------------------------------
+    static void PunishShock(PlayerBase player, float wetnessValue_Read, int powerType, ItemBase usedTool, array<toolCategory> preferredToolList, bool isCarType, float base9V, float baseCar, float baseTruck, float preferredMultiplier, float notPreferredMultiplier, float mismatchTargetOffset)
     {
-        if (!source_item) return;
+        if (!player) return;
+        if (powerType <= 0) return;
 
-        float wet = source_item.GetWet();
-        if (wet < GameConstants.STATE_WET) return;
+        toolCategory usedCategory;
+        float toolMul = ToolRiskMultiplier(usedTool, preferredToolList, preferredMultiplier, notPreferredMultiplier, usedCategory);
+        bool toolPreferred = IsPreferredTool(usedTool, preferredToolList, usedCategory);
 
-        // Transfer wetness and apply small damage to crafted results (after inheritance)
+        float shockWetMultiplier = 1.0;
+        if (wetnessValue_Read >= GameConstants.STATE_DAMP && wetnessValue_Read < GameConstants.STATE_WET) shockWetMultiplier = 1.25;
+        else if (wetnessValue_Read >= GameConstants.STATE_WET && wetnessValue_Read < GameConstants.STATE_SOAKING_WET) shockWetMultiplier = 1.50;
+        else if (wetnessValue_Read >= GameConstants.STATE_SOAKING_WET && wetnessValue_Read < GameConstants.STATE_DRENCHED) shockWetMultiplier = 2.00;
+        else if (wetnessValue_Read >= GameConstants.STATE_DRENCHED) shockWetMultiplier = 2.50;
+
+        if (isCarType && (powerType == 2 || powerType == 3))
+        {
+            float cur = player.GetHealth("", "Shock");
+            float max = player.GetMaxHealth("", "Shock");
+            if (max <= 0.0) return;
+
+            float dryTarget = 50.0;
+            float wetTarget = 20.0;
+
+            if (!toolPreferred)
+            {
+                dryTarget = dryTarget + mismatchTargetOffset;
+                wetTarget = wetTarget + mismatchTargetOffset;
+                if (dryTarget < 0.0) dryTarget = 0.0;
+                if (wetTarget < 0.0) wetTarget = 0.0;
+            }
+
+            float target = dryTarget;
+            if (wetnessValue_Read >= GameConstants.STATE_WET) target = wetTarget;
+            if (target > max) target = max;
+
+            float delta = target - cur;
+            player.AddHealth("", "Shock", delta);
+
+            if (GetGame() && GetGame().IsServer()) DropItemInHands(player);
+            return;
+        }
+
+        float baseMag = 0.0;
+        if (powerType == 1) baseMag = base9V;
+        else if (powerType == 2) baseMag = baseCar;
+        else if (powerType == 3) baseMag = baseTruck;
+
+        if (baseMag <= 0.0) return;
+
+        baseMag = baseMag * toolMul;
+        float shockDelta = baseMag * shockWetMultiplier;
+        player.AddHealth("", "Shock", -shockDelta);
+
+        if (GetGame() && GetGame().IsServer()) DropItemInHands(player);
+    }
+    // ---------------------------------------------------------------------
+    // PunishCut
+    // ---------------------------------------------------------------------
+    static bool PunishCut(PlayerBase player, ItemBase usedTool, array<toolCategory> preferredToolList, float wetnessValue_Read, float baseChance, float wetnessScale, float healthPenaltyAbs, float preferredMultiplier, float notPreferredMultiplier)
+    {
+        if (!player) return false;
+        if (baseChance < 0.0) baseChance = 0.0;
+        if (baseChance > 1.0) baseChance = 1.0;
+        if (wetnessScale < 0.0) wetnessScale = 0.0;
+        if (wetnessValue_Read < 0.0) wetnessValue_Read = 0.0;
+        if (wetnessValue_Read > 1.0) wetnessValue_Read = 1.0;
+        if (healthPenaltyAbs < 0.0) healthPenaltyAbs = 0.0;
+
+        toolCategory usedCategory;
+        float toolMul = ToolRiskMultiplier(usedTool, preferredToolList, preferredMultiplier, notPreferredMultiplier, usedCategory);
+
+        float gloveMitigation;
+        bool hasGloves = HasGloveProtection(player, gloveMitigation);
+        if (!hasGloves) gloveMitigation = 0.0;
+        if (gloveMitigation < 0.0) gloveMitigation = 0.0;
+        if (gloveMitigation > 1.0) gloveMitigation = 1.0;
+
+        float finalChance = baseChance * (1.0 + (wetnessValue_Read * wetnessScale));
+        finalChance = finalChance * toolMul;
+        finalChance = finalChance * (1.0 - gloveMitigation);
+        if (finalChance > 1.0) finalChance = 1.0;
+
+        float finalDamage = healthPenaltyAbs * toolMul * (1.0 - gloveMitigation);
+
+        float roll = Math.RandomFloat(0.0, 1.0);
+        if (roll <= finalChance)
+        {
+            if (finalDamage > 0.0) player.AddHealth("", "", -finalDamage);
+            if (GetGame() && GetGame().IsServer()) DropItemInHands(player);
+            return true;
+        }
+        return false;
+    }
+    // ---------------------------------------------------------------------
+    // Recipe result condition based punishments
+    // ---------------------------------------------------------------------
+    static void PunishResults(array<ItemBase> results, float wetnessValue_Read, float wetThreshold, int powerType, ItemBase usedTool, array<toolCategory> preferredToolList, float wetPenalty, float poweredPenaltyAbs, float wrongToolPenaltyAbs)
+    {
+        if (!results) return;
+        float totalPenalty = 0.0;
+        if (wetnessValue_Read >= 0.0 && wetnessValue_Read >= wetThreshold) totalPenalty = totalPenalty + wetPenalty;
+        if (powerType > 0) totalPenalty = totalPenalty + poweredPenaltyAbs;
+        if (usedTool)
+        {
+            toolCategory usedCategory;
+            bool preferred = IsPreferredTool(usedTool, preferredToolList, usedCategory);
+            if (!preferred) totalPenalty = totalPenalty + wrongToolPenaltyAbs;
+        }
+        if (totalPenalty <= 0.0) return;
         for (int i = 0; i < results.Count(); i++)
         {
-            ItemBase res = results[i];
-            if (!res) continue;
-
-            res.SetWet(wet);
-            res.AddHealth("", "", -10.0);
-        }
-
-        if (GetGame().IsServer() && player)
-        {
-            float slipChance;
-            if      (wet < GameConstants.STATE_SOAKING_WET) slipChance = 0.15;
-            else if (wet < GameConstants.STATE_DRENCHED)    slipChance = 0.35;
-            else                                            slipChance = 0.60;
-
-            toolCategory cat = GetToolCategory(tool);
-            switch (cat)
-            {
-                case toolCategory.TOOL_LARGE_BLADE:
-                    slipChance += 0.20;
-                    break;
-                case toolCategory.TOOL_AXE:
-                    slipChance += 0.30;
-                    break;
-                case toolCategory.TOOL_SAW:
-                    slipChance += 0.10;
-                    break;
-                default:
-                    break;
-            }
-
-            if (slipChance < 0.0) slipChance = 0.0;
-            if (slipChance > 0.95) slipChance = 0.95;
-
-            if (Math.RandomFloat01() < slipChance)
-            {
-                string noun = toolNoun(cat);
-
-                ItemBase gloves = ItemBase.Cast(player.FindAttachmentBySlotName("Gloves"));
-                if (gloves)
-                {
-                    gloves.AddHealth("", "", -5.0);
-                    player.MessageImportant("The " + noun + " slipped on the wet plastic surface, luckily your gloves took the hit.");
-                }
-                else
-                {
-                    string bodyPart;
-                    if (Math.RandomInt(0, 2) == 0) bodyPart = "LeftForeArmRoll";
-                    else                            bodyPart = "RightForeArmRoll";
-
-                    if (player.m_BleedingManagerServer)
-                    {
-                        player.m_BleedingManagerServer.AttemptAddBleedingSourceBySelection(bodyPart);
-                        player.MessageImportant("The " + noun + " slipped on the wet plastic surface, you should be wearing gloves.");
-                    }
-                }
-            }
+            ItemBase r = results[i];
+            if (!r) continue;
+            r.AddHealth("", "", -totalPenalty);
         }
     }
 }

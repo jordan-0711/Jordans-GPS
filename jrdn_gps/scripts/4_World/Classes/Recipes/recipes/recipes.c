@@ -10,7 +10,7 @@ void JRDN_Log(string msg)
 		Print("[JRDN_GPS] " + msg);
 	}
 }
-class cutWires extends RecipeBase
+class salvageWires extends RecipeBase
 {
 	override void Init()
 	{
@@ -37,44 +37,46 @@ class cutWires extends RecipeBase
 		// -------------------------------------------------------------------------------------------------
 		// Ingredient 1
 		// -------------------------------------------------------------------------------------------------
-		InsertIngredient(0,"Spotlight");
-		InsertIngredient(0,"CableReel");
-		m_IngredientAddHealth[0] = 0;// 0 = do nothing
+		InsertIngredient(0, "KitchenKnife");
+		InsertIngredient(0, "SteakKnife");
+		InsertIngredient(0, "Cleaver");
+		InsertIngredient(0, "CombatKnife");
+		InsertIngredient(0, "HuntingKnife");
+		InsertIngredient(0, "KukriKnife");
+		InsertIngredient(0, "FangeKnife");
+		InsertIngredient(0, "AK_Bayonet");
+		InsertIngredient(0, "M9A1_Bayonet");
+		InsertIngredient(0, "Mosin_Bayonet");
+		InsertIngredient(0, "SNAFU_SKS_Bayonet");
+		InsertIngredient(0, "Msp_VorpalKnife");
+		InsertIngredient(0, "SNAFU_Kabar");
+		InsertIngredient(0, "SNAFU_Kabar_BK");
+		InsertIngredient(0, "Machete");
+		InsertIngredient(0, "CrudeMachete");
+		InsertIngredient(0, "OrientalMachete");
+		InsertIngredient(0, "Hatchet");
+		InsertIngredient(0, "WoodAxe");
+		InsertIngredient(0, "FirefighterAxe");
+		InsertIngredient(0, "HandSaw");
+		InsertIngredient(0, "Hacksaw");
+		m_IngredientAddHealth[0] = -10;// 0 = do nothing
         m_IngredientSetHealth[0] = -1; // -1 = do nothing
-        m_IngredientAddQuantity[0] = -1;// 0 = do nothing
-        m_IngredientDestroy[0] = true;//true = destroy, false = do nothing
-        m_IngredientUseSoftSkills[0] = false;// set 'true' to allow modification of the values by softskills on this 
+        m_IngredientAddQuantity[0] = 0;// 0 = do nothing
+        m_IngredientDestroy[0] = false;//true = destroy, false = do nothing
+        m_IngredientUseSoftSkills[0] = false;// set 'true' to allow modification of the values by softskills on this ingredient
+
 
 		// -------------------------------------------------------------------------------------------------
 		// Ingredient 2
 		// -------------------------------------------------------------------------------------------------
-		InsertIngredient(1, "KitchenKnife");
-		InsertIngredient(1, "SteakKnife");
-		InsertIngredient(1, "Cleaver");
-		InsertIngredient(1, "CombatKnife");
-		InsertIngredient(1, "HuntingKnife");
-		InsertIngredient(1, "KukriKnife");
-		InsertIngredient(1, "FangeKnife");
-		InsertIngredient(1, "AK_Bayonet");
-		InsertIngredient(1, "M9A1_Bayonet");
-		InsertIngredient(1, "Mosin_Bayonet");
-		InsertIngredient(1, "SNAFU_SKS_Bayonet");
-		InsertIngredient(1, "Msp_VorpalKnife");
-		InsertIngredient(1, "SNAFU_Kabar");
-		InsertIngredient(1, "SNAFU_Kabar_BK");
-		InsertIngredient(1, "Machete");
-		InsertIngredient(1, "CrudeMachete");
-		InsertIngredient(1, "OrientalMachete");
-		InsertIngredient(1, "Hatchet");
-		InsertIngredient(1, "WoodAxe");
-		InsertIngredient(1, "FirefighterAxe");
-		InsertIngredient(1, "HandSaw");
-		InsertIngredient(1, "Hacksaw");
-		m_IngredientAddHealth[1] = -10;// 0 = do nothing
+		InsertIngredient(1,"Spotlight");
+		InsertIngredient(1,"CableReel");
+		m_IngredientAddHealth[1] = 0;// 0 = do nothing
         m_IngredientSetHealth[1] = -1; // -1 = do nothing
-        m_IngredientAddQuantity[1] = 0;// 0 = do nothing
-        m_IngredientDestroy[1] = false;//true = destroy, false = do nothing
-        m_IngredientUseSoftSkills[1] = false;// set 'true' to allow modification of the values by softskills on this ingredient
+        m_IngredientAddQuantity[1] = -1;// 0 = do nothing
+        m_IngredientDestroy[1] = true;//true = destroy, false = do nothing
+        m_IngredientUseSoftSkills[1] = false;// set 'true' to allow modification of the values by softskills on this 
+
 
 		// -------------------------------------------------------------------------------------------------
 		// Result
@@ -96,9 +98,24 @@ class cutWires extends RecipeBase
 	override void Do(ItemBase ingredients[], PlayerBase player, array<ItemBase> results, float specialty_weight)
 	{
 		super.Do(ingredients, player, results, specialty_weight);
-		ItemBase source_item = ingredients[0];
-		ItemBase tool        = ingredients[1];
-		jrdn_gps_utils.ApplyWetTransferAndSlip(source_item, tool, results, player);
+		float Wet_Read;
+		jrdn_helpers.ReadWet(ingredients, Wet_Read);
+
+		if (GetGame() && GetGame().IsServer())
+		{
+			// write same wetness to all results
+			jrdn_helpers.ApplyWet(results, Wet_Read);
+
+			// Optional: if you still want the “-10 damage when wet” punishment on the crafted items:
+			if (Wet_Read >= GameConstants.STATE_WET)
+			{
+				for (int i = 0; i < results.Count(); i++)
+				{
+					ItemBase r = results[i];
+					if (r) r.AddHealth("", "", -10.0);
+				}
+			}
+		}
 	}
 };
 class salvagePCBCasing extends RecipeBase
@@ -180,7 +197,7 @@ class salvagePCBCasing extends RecipeBase
 		jrdn_gps_utils.ShockIfPowered(ItemBase.Cast(ingredients[1]), player);
 	}
 };
-class createWiredPCB extends RecipeBase
+class craftWiredPCB extends RecipeBase
 {
 	override void Init()
 	{
@@ -240,17 +257,20 @@ class createWiredPCB extends RecipeBase
 	}
 	override bool CanDo(ItemBase ingredients[], PlayerBase player)
 	{
-		if (!ingredients) return false;
-		ItemBase wires = ingredients[0];
-		ItemBase pcb   = ingredients[1];
-		return jrdn_gps_utils.IsBothBelowWetThreshold(wires, pcb, GameConstants.STATE_DAMP);
+		return jrdn_helpers.CanCombine_WetCheck(ingredients[0], ingredients[1]);
 	}
 	override void Do(ItemBase ingredients[], PlayerBase player, array<ItemBase> results, float specialty_weight)
 	{
 		super.Do(ingredients, player, results, specialty_weight);
+
+		float Wet_Read;
+		jrdn_helpers.ReadWet(ingredients, Wet_Read);
+
+		if (GetGame() && GetGame().IsServer())
+			jrdn_helpers.ApplyWet(results, Wet_Read);
 	}
 };
-class createGPS extends RecipeBase
+class craftGPS extends RecipeBase
 {
 	override void Init()
 	{
@@ -306,17 +326,25 @@ class createGPS extends RecipeBase
 		m_ResultToInventory[0] = -2;//(value) == -2 spawn result on the ground;(value) == -1 place anywhere in the players inventory, (value) >= 0 means switch position with ingredient number(value)
 		m_ResultUseSoftSkills[0] = false;// set 'true' to allow modification of the values by softskills on this result
 		m_ResultReplacesIngredient[0] = -1;// value == -1 means do nothing; a value >= 0 means this result will transfer item propertiesvariables, attachments etc.. from an ingredient value
-
 	}
 	override bool CanDo(ItemBase ingredients[], PlayerBase player)
 	{
 		if (!ingredients) return false;
-		ItemBase wires = ingredients[0];
-		ItemBase pcb   = ingredients[1];
-		return jrdn_gps_utils.IsBothBelowWetThreshold(wires, pcb, GameConstants.STATE_DAMP);
+		return jrdn_helpers.CanCombine_WetCheck(ingredients[0], ingredients[1]);
 	}
 	override void Do(ItemBase ingredients[], PlayerBase player, array<ItemBase> results, float specialty_weight)
 	{
 		super.Do(ingredients, player, results, specialty_weight);
+
+		if (!ingredients) return;
+		if (ingredients.Count() == 0) return;
+		if (!results) return;
+
+		float Wet_Read;
+		jrdn_helpers.ReadWet(ingredients, Wet_Read);
+
+		if (GetGame() && GetGame().IsServer())
+			jrdn_helpers.ApplyWet(results, Wet_Read);
 	}
+
 };
