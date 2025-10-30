@@ -1,15 +1,3 @@
-//----------------------------------------------------------------------------------------------------------------------
-// Debug options
-const bool JRDN_GPS_DEBUG = true;
-const bool JRDN_GPS_TEST_FORCE_SLIP    = false; // set true to guarantee slip
-const bool JRDN_GPS_TEST_FORCE_NO_SLIP = false; // set true to guarantee NO slip
-void JRDN_Log(string msg)
-{
-	if (GetGame() && GetGame().IsServer())
-	{
-		Print("[JRDN_GPS] " + msg);
-	}
-}
 class salvageWires extends RecipeBase
 {
 	override void Init()
@@ -153,7 +141,7 @@ class salvageWires extends RecipeBase
 
 		int powerType = 0; // not applicable for wire salvage
 
-		jrdn_helpers.PunishResults(results, wet_read, GameConstants.STATE_DAMP, powerType, tool, preferredTools, wetPenaltyAbs, jrdn_settings.result.poweredPenaltyAbs,);
+		jrdn_helpers.PunishResults(results, wet_read, GameConstants.STATE_DAMP, 0, tool, preferredTools, wetPenaltyAbs, jrdn_settings.result.poweredPenaltyAbs, jrdn_settings.result.wrongToolPenaltyAbs);
 
 		// 5) Inherit wetness from target
 		if (wet_read >= 0.0)
@@ -162,12 +150,6 @@ class salvageWires extends RecipeBase
 			resArr.Insert(result0);
 			jrdn_helpers.ApplyWet(resArr, wet_read);
 		}
-
-		// 6) Inherit health from target
-		float inheritHealth;
-		jrdn_helpers.ReadHealth(target, inheritHealth);
-		if (inheritHealth >= 0.0)
-			jrdn_helpers.ApplyHealth(result0, inheritHealth);
 	}
 };
 class salvagePCBCasing extends RecipeBase
@@ -294,7 +276,8 @@ class salvagePCBCasing extends RecipeBase
 
 		// 3) Preferred tools (utility for electronics)
 		array<toolCategory> preferredTools = new array<toolCategory>;
-		preferredTools.Insert(toolCategory.TOOL_UTILITY);
+		preferredTools.Insert(toolCategory.TOOL_UTILITY_SCREW);
+		preferredTools.Insert(toolCategory.TOOL_UTILITY_WRENCH);
 
 		// 4) Spawn final result at feet with inheritance (health from target; wetness applied below)
 		ItemBase finalResult = jrdn_helpers.KeepOrSpawnRandomResult(pickedClass, results, player, "", inheritWetFrom, target);
@@ -327,7 +310,6 @@ class salvagePCBCasing extends RecipeBase
 			jrdn_helpers.PunishShock(player, wet_read, powerType, tool, preferredTools, isCarType, base9V, baseCar, baseTruck, preferredMul, notPreferredMul, notPreferredFixed);
 		}
 
-		// 6) Punish result condition for wetness + wrong tool
 		float wetPenaltyAbs = 0.0;
 		if (wet_read >= GameConstants.STATE_DAMP)
 		{
@@ -339,7 +321,6 @@ class salvagePCBCasing extends RecipeBase
 
 		jrdn_helpers.PunishResults(punishList, wet_read, GameConstants.STATE_DAMP, powerType, tool, preferredTools, wetPenaltyAbs, jrdn_settings.result.poweredPenaltyAbs, jrdn_settings.result.wrongToolPenaltyAbs);
 
-		// 7) Optional ruin flags from settings
 		if (finalResult)
 		{
 			if (powerType == 2 && jrdn_settings.result.ruinOnCarBattery)

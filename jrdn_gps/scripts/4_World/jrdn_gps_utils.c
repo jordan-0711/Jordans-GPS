@@ -144,6 +144,16 @@ string toolNoun(toolCategory cat)
             return "axe head";
         case toolCategory.TOOL_SAW:
             return "saw blade";
+        case toolCategory.TOOL_HAMMER:
+            return "Hammer";
+        case toolCategory.TOOL_UTILITY_SCREW:
+            return "saw blade";
+        case toolCategory.TOOL_UTILITY_WRENCH:
+            return "saw blade";
+        case toolCategory.TOOL_BLUNT:
+            return "saw blade";
+        case toolCategory.TOOL_LONG:
+            return "saw blade";
         default:
             return "blade";
     }
@@ -215,7 +225,7 @@ class jrdn_helpers
             ItemBase itemCount = items[i];
             if (!itemCount) continue;
 
-            float wetItem = itemCount.GetWet(); // 0..1
+            float wetItem = itemCount.GetWet();
             if (wetItem >= 0.0)
             {
                 if (wettestItem < 0.0)
@@ -298,7 +308,6 @@ class jrdn_helpers
         if (!player)
             return null;
 
-        // --- 1) Keep or spawn
         ItemBase placeholderItem = results[0];
         ItemBase finalItem = null;
 
@@ -314,14 +323,12 @@ class jrdn_helpers
             finalItem = SpawnAtFeet(pickClass, player);
         }
 
-        // --- 2) Read inheritance
         float inheritHealthValue;
-        ReadHealth(healthSource, inheritHealthValue); // -1.0 if invalid
+        ReadHealth(healthSource, inheritHealthValue);
 
         float inheritWetValue;
-        jrdn_helpers.ReadWet(inheritFromItems, inheritWetValue); // -1.0 if invalid
+        jrdn_helpers.ReadWet(inheritFromItems, inheritWetValue);
 
-        // --- 3) Apply inheritance
         if (finalItem && inheritHealthValue >= 0.0)
             ApplyHealth(finalItem, inheritHealthValue);
 
@@ -346,7 +353,6 @@ class jrdn_helpers
 
         vector playerPosition = player.GetPosition();
 
-        // Create on surface to avoid sinking; delete if not an ItemBase.
         EntityAI createItemSurface = EntityAI.Cast(GetGame().CreateObjectEx(className, playerPosition, ECE_PLACE_ON_SURFACE));
         ItemBase spawnItemWorld = ItemBase.Cast(createItemSurface);
 
@@ -367,13 +373,11 @@ class jrdn_helpers
         if (!ingredient0 || !ingredient1)
             return false;
 
-        float wetThreshold = GameConstants.STATE_DAMP; // "dry enough" threshold (0.05)
+        float wetThreshold = GameConstants.STATE_DAMP;
 
-        // --- 1. Get each item's category through your existing global lookup
         toolCategory ingredient0Category = GetToolCategory(ingredient0);
         toolCategory ingredient1Category = GetToolCategory(ingredient1);
 
-        // --- 2. Test whether either category corresponds to a defined tool
         bool ingredient0IsTool = (ingredient0Category == toolCategory.TOOL_SMALL_BLADE
                     || ingredient0Category == toolCategory.TOOL_LARGE_BLADE
                     || ingredient0Category == toolCategory.TOOL_AXE
@@ -381,8 +385,8 @@ class jrdn_helpers
                     || ingredient0Category == toolCategory.TOOL_HAMMER
                     || ingredient0Category == toolCategory.TOOL_UTILITY_SCREW
                     || ingredient0Category == toolCategory.TOOL_UTILITY_WRENCH
-                    || ingredient0Category == toolCategory.TOOL_UTILITY_BLUNT
-                    || ingredient0Category == toolCategory.TOOL_UTILITY_LONG);
+                    || ingredient0Category == toolCategory.TOOL_BLUNT
+                    || ingredient0Category == toolCategory.TOOL_LONG);
 
         bool ingredient1IsTool = (ingredient1Category == toolCategory.TOOL_SMALL_BLADE
                     || ingredient1Category == toolCategory.TOOL_LARGE_BLADE
@@ -391,11 +395,9 @@ class jrdn_helpers
                     || ingredient1Category == toolCategory.TOOL_HAMMER
                     || ingredient1Category == toolCategory.TOOL_UTILITY_SCREW
                     || ingredient1Category == toolCategory.TOOL_UTILITY_WRENCH
-                    || ingredient1Category == toolCategory.TOOL_UTILITY_BLUNT
-                    || ingredient1Category == toolCategory.TOOL_UTILITY_LONG);
+                    || ingredient1Category == toolCategory.TOOL_BLUNT
+                    || ingredient1Category == toolCategory.TOOL_LONG);
 
-
-        // --- 3. One tool → check only the non-tool
         if (ingredient0IsTool && !ingredient1IsTool)
         {
             float ingredient1_Wetness = ingredient1.GetWet();
@@ -410,7 +412,6 @@ class jrdn_helpers
                 return true;
             return false;
         }
-        // --- 4. Both non-tools → both must be dry
         float ingredient0_NonToolWetness = ingredient0.GetWet();
         float ingredient1_NonToolWetness = ingredient1.GetWet();
 
@@ -471,7 +472,7 @@ class jrdn_helpers
     // ---------------------------------------------------------------------
     static bool IsPreferredTool(ItemBase usedTool, array<toolCategory> preferredToolList, out toolCategory usedCategory)
     {
-        usedCategory = toolCategory.TOOL_SMALL_BLADE; // default fallback
+        usedCategory = toolCategory.TOOL_SMALL_BLADE;
 
         if (!usedTool)
             return false;
@@ -643,23 +644,19 @@ class jrdn_helpers
     {
         outSelection = "";
 
-        // Ensure data initialized
         BuildInjuryData();
 
-        // Trauma-only categories -> no bleed
         if (traumaOnly && traumaOnly.Contains(cat))
         {
             return false;
         }
 
-        // Get tag list for category
         TStringArray tagList = toolCategoryTags.Get(cat);
         if (!tagList || tagList.Count() == 0)
         {
             return false;
         }
 
-        // Flatten tags into one bleed pool
         TStringArray bleedPool = new TStringArray;
         for (int i = 0; i < tagList.Count(); i++)
         {
@@ -679,7 +676,6 @@ class jrdn_helpers
             return false;
         }
 
-        // Pick a random selection
         int idx = Math.RandomInt(0, bleedPool.Count());
         outSelection = bleedPool.Get(idx);
         return true;
@@ -701,7 +697,6 @@ class jrdn_helpers
 
         usedSelection = pick;
 
-        // Delegate to existing ApplyBleed(). Caller should ensure server-side gating at callsite.
         return ApplyBleed(player, usedSelection);
     }
     // ---------------------------------------------------------------------
@@ -745,7 +740,6 @@ class jrdn_helpers
             float max = player.GetMaxHealth("", "Shock");
             if (max <= 0.0) return;
 
-            // Read shock targets from global settings
             float dryTarget = jrdn_settings.power.baseDry;
             float wetTarget = jrdn_settings.power.baseWet;
 
@@ -799,7 +793,8 @@ class jrdn_helpers
         float toolMul = ToolRiskMultiplier(usedTool, preferredToolList, preferredMultiplier, notPreferredMultiplier, usedCategory);
 
         float gloveMitigation;
-        bool hasGloves = HasGloveProtection(player, gloveMitigation);
+        ItemBase gloveItem;
+        bool hasGloves = HasGloveProtection(player, gloveMitigation, gloveItem);
         if (!hasGloves) gloveMitigation = 0.0;
         if (gloveMitigation < 0.0) gloveMitigation = 0.0;
         if (gloveMitigation > 1.0) gloveMitigation = 1.0;

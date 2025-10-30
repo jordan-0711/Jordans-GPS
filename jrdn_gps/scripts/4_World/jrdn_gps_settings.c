@@ -47,7 +47,6 @@ class jrdn_settings
         float notPreferredMul       = 1.35;  // multiplier when NOT using a preferred tool
         float notPreferredFixed     = -10.0; // static shock offset for non-preferred tools (car/truck shocks)
     };
-
     // ---------------------------------------------------------------------
     // Recipe wetness lockout
     // If true, recipes may reject crafting when wetness >= STATE_SOAKING_WET.
@@ -57,7 +56,14 @@ class jrdn_settings
     {
         bool lockoutAtSoaking = true;
     };
-
+    // ---------------------------------------------------------------------
+    // Glove mitigation
+    // ---------------------------------------------------------------------
+    // static ref gloveMitigation yesGloves = new gloveMitigation;
+    // class gloveMitigation
+    // {
+    //     bool gloveMitigation = 1;
+    // };
     // ---------------------------------------------------------------------
     // Result damage tuning (used by salvageWires; available to others)
     // ---------------------------------------------------------------------
