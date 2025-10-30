@@ -11,7 +11,8 @@ enum toolCategory
     TOOL_AXE,
     TOOL_SAW,
     TOOL_HAMMER,
-    TOOL_UTILITY,
+    TOOL_UTILITY_SCREW,
+    TOOL_UTILITY_WRENCH,
     TOOL_BLUNT,
     TOOL_LONG
 };
@@ -33,26 +34,25 @@ toolCategory GetToolCategory(ItemBase tool)
         return toolCategory.TOOL_SMALL_BLADE;
     if (toolName == "HuntingKnife")
         return toolCategory.TOOL_SMALL_BLADE;
-    if (toolName == "Msp_VorpalKnife")
-        return toolCategory.TOOL_SMALL_BLADE;
-    // Large blades
     if (toolName == "Cleaver")
+        return toolCategory.TOOL_SMALL_BLADE;
+    if (toolName == "AK_Bayonet")
+        return toolCategory.TOOL_SMALL_BLADE;
+    if (toolName == "M9A1_Bayonet")
+        return toolCategory.TOOL_SMALL_BLADE;
+    if (toolName == "SNAFU_Kabar")
+        return toolCategory.TOOL_SMALL_BLADE;
+
+    // Large blades
+    if (toolName == "Msp_VorpalKnife")
         return toolCategory.TOOL_LARGE_BLADE;
     if (toolName == "KukriKnife")
         return toolCategory.TOOL_LARGE_BLADE;
     if (toolName == "FangeKnife")
         return toolCategory.TOOL_LARGE_BLADE;
-    if (toolName == "AK_Bayonet")
-        return toolCategory.TOOL_LARGE_BLADE;
-    if (toolName == "M9A1_Bayonet")
-        return toolCategory.TOOL_LARGE_BLADE;
     if (toolName == "Mosin_Bayonet")
         return toolCategory.TOOL_LARGE_BLADE;
     if (toolName == "SNAFU_SKS_Bayonet")
-        return toolCategory.TOOL_LARGE_BLADE;
-    if (toolName == "SNAFU_Kabar")
-        return toolCategory.TOOL_LARGE_BLADE;
-    if (toolName == "SNAFU_Kabar_BK")
         return toolCategory.TOOL_LARGE_BLADE;
     if (toolName == "Machete")
         return toolCategory.TOOL_LARGE_BLADE;
@@ -60,8 +60,7 @@ toolCategory GetToolCategory(ItemBase tool)
         return toolCategory.TOOL_LARGE_BLADE;
     if (toolName == "OrientalMachete")
         return toolCategory.TOOL_LARGE_BLADE;
-    if (toolName == "Sword")
-        return toolCategory.TOOL_LARGE_BLADE;
+
     // Axes
     if (toolName == "Hatchet")
         return toolCategory.TOOL_AXE;
@@ -89,19 +88,20 @@ toolCategory GetToolCategory(ItemBase tool)
         return toolCategory.TOOL_HAMMER;
     if (toolName == "SledgeHammer")
         return toolCategory.TOOL_HAMMER;
-     // Utility
+     // Utility SCREW/PRY ETC
     if (toolName == "Screwdriver")
-        return toolCategory.TOOL_UTILITY;
+        return toolCategory.TOOL_UTILITY_SCREW;
     if (toolName == "Pliers")
-        return toolCategory.TOOL_UTILITY;
-    if (toolName == "LugWrench")
-        return toolCategory.TOOL_UTILITY;
-    if (toolName == "Wrench")
-        return toolCategory.TOOL_UTILITY;
-    if (toolName == "PipeWrench")
-        return toolCategory.TOOL_UTILITY;
+        return toolCategory.TOOL_UTILITY_SCREW;
     if (toolName == "Crowbar")
-        return toolCategory.TOOL_UTILITY;
+        return toolCategory.TOOL_UTILITY_SCREW;
+    // Utility wrench
+    if (toolName == "LugWrench")
+        return toolCategory.TOOL_UTILITY_WRENCH;
+    if (toolName == "Wrench")
+        return toolCategory.TOOL_UTILITY_WRENCH;
+    if (toolName == "PipeWrench")
+        return toolCategory.TOOL_UTILITY_WRENCH;
     // Blunt
     if (toolName == "BaseballBat")
         return toolCategory.TOOL_BLUNT;
@@ -124,7 +124,7 @@ toolCategory GetToolCategory(ItemBase tool)
         return toolCategory.TOOL_LONG;
     if (toolName == "Pitchfork")
         return toolCategory.TOOL_LONG;
-    if (toolName == "Broom")
+    if (toolName == "Sword")
         return toolCategory.TOOL_LONG;
     // Default
     return toolCategory.TOOL_SMALL_BLADE;
@@ -377,12 +377,23 @@ class jrdn_helpers
         bool ingredient0IsTool = (ingredient0Category == toolCategory.TOOL_SMALL_BLADE
                     || ingredient0Category == toolCategory.TOOL_LARGE_BLADE
                     || ingredient0Category == toolCategory.TOOL_AXE
-                    || ingredient0Category == toolCategory.TOOL_SAW);
+                    || ingredient0Category == toolCategory.TOOL_SAW
+                    || ingredient0Category == toolCategory.TOOL_HAMMER
+                    || ingredient0Category == toolCategory.TOOL_UTILITY_SCREW
+                    || ingredient0Category == toolCategory.TOOL_UTILITY_WRENCH
+                    || ingredient0Category == toolCategory.TOOL_UTILITY_BLUNT
+                    || ingredient0Category == toolCategory.TOOL_UTILITY_LONG);
 
         bool ingredient1IsTool = (ingredient1Category == toolCategory.TOOL_SMALL_BLADE
                     || ingredient1Category == toolCategory.TOOL_LARGE_BLADE
                     || ingredient1Category == toolCategory.TOOL_AXE
-                    || ingredient1Category == toolCategory.TOOL_SAW);
+                    || ingredient1Category == toolCategory.TOOL_SAW
+                    || ingredient1Category == toolCategory.TOOL_HAMMER
+                    || ingredient1Category == toolCategory.TOOL_UTILITY_SCREW
+                    || ingredient1Category == toolCategory.TOOL_UTILITY_WRENCH
+                    || ingredient1Category == toolCategory.TOOL_UTILITY_BLUNT
+                    || ingredient1Category == toolCategory.TOOL_UTILITY_LONG);
+
 
         // --- 3. One tool → check only the non-tool
         if (ingredient0IsTool && !ingredient1IsTool)
@@ -718,11 +729,15 @@ class jrdn_helpers
         float toolMul = ToolRiskMultiplier(usedTool, preferredToolList, preferredMultiplier, notPreferredMultiplier, usedCategory);
         bool toolPreferred = IsPreferredTool(usedTool, preferredToolList, usedCategory);
 
-        float shockWetMultiplier = 1.0;
-        if (wetnessValue_Read >= GameConstants.STATE_DAMP && wetnessValue_Read < GameConstants.STATE_WET) shockWetMultiplier = 1.25;
-        else if (wetnessValue_Read >= GameConstants.STATE_WET && wetnessValue_Read < GameConstants.STATE_SOAKING_WET) shockWetMultiplier = 1.50;
-        else if (wetnessValue_Read >= GameConstants.STATE_SOAKING_WET && wetnessValue_Read < GameConstants.STATE_DRENCHED) shockWetMultiplier = 2.00;
-        else if (wetnessValue_Read >= GameConstants.STATE_DRENCHED) shockWetMultiplier = 2.50;
+        float shockWetMultiplier = jrdn_settings.power.baseMultiplyDry;
+        if (wetnessValue_Read >= GameConstants.STATE_DAMP && wetnessValue_Read < GameConstants.STATE_WET)
+            shockWetMultiplier = jrdn_settings.power.baseMultiplyDamp;
+        else if (wetnessValue_Read >= GameConstants.STATE_WET && wetnessValue_Read < GameConstants.STATE_SOAKING_WET)
+            shockWetMultiplier = jrdn_settings.power.baseMultiplyWet;
+        else if (wetnessValue_Read >= GameConstants.STATE_SOAKING_WET && wetnessValue_Read < GameConstants.STATE_DRENCHED)
+            shockWetMultiplier = jrdn_settings.power.baseMultiplySoaking;
+        else if (wetnessValue_Read >= GameConstants.STATE_DRENCHED)
+            shockWetMultiplier = jrdn_settings.power.baseMultiplyDrenched;
 
         if (isCarType && (powerType == 2 || powerType == 3))
         {
@@ -730,13 +745,15 @@ class jrdn_helpers
             float max = player.GetMaxHealth("", "Shock");
             if (max <= 0.0) return;
 
-            float dryTarget = 50.0;
-            float wetTarget = 20.0;
+            // Read shock targets from global settings
+            float dryTarget = jrdn_settings.power.baseDry;
+            float wetTarget = jrdn_settings.power.baseWet;
 
             if (!toolPreferred)
             {
-                dryTarget = dryTarget + mismatchTargetOffset;
-                wetTarget = wetTarget + mismatchTargetOffset;
+                dryTarget = dryTarget + jrdn_settings.tools.notPreferredFixed;
+                wetTarget = wetTarget + jrdn_settings.tools.notPreferredFixed;
+
                 if (dryTarget < 0.0) dryTarget = 0.0;
                 if (wetTarget < 0.0) wetTarget = 0.0;
             }

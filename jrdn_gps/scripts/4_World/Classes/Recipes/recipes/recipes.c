@@ -37,28 +37,35 @@ class salvageWires extends RecipeBase
 		// -------------------------------------------------------------------------------------------------
 		// Ingredient 1
 		// -------------------------------------------------------------------------------------------------
-		InsertIngredient(0, "KitchenKnife");
+		// PreferredTools
 		InsertIngredient(0, "SteakKnife");
-		InsertIngredient(0, "Cleaver");
+		InsertIngredient(0, "KitchenKnife");
 		InsertIngredient(0, "CombatKnife");
 		InsertIngredient(0, "HuntingKnife");
-		InsertIngredient(0, "KukriKnife");
-		InsertIngredient(0, "FangeKnife");
+		InsertIngredient(0, "Cleaver");
 		InsertIngredient(0, "AK_Bayonet");
 		InsertIngredient(0, "M9A1_Bayonet");
+		InsertIngredient(0, "SNAFU_Kabar");
+		InsertIngredient(0, "Msp_VorpalKnife");
+		InsertIngredient(0, "KukriKnife");
+		InsertIngredient(0, "FangeKnife");
 		InsertIngredient(0, "Mosin_Bayonet");
 		InsertIngredient(0, "SNAFU_SKS_Bayonet");
-		InsertIngredient(0, "Msp_VorpalKnife");
-		InsertIngredient(0, "SNAFU_Kabar");
-		InsertIngredient(0, "SNAFU_Kabar_BK");
 		InsertIngredient(0, "Machete");
 		InsertIngredient(0, "CrudeMachete");
 		InsertIngredient(0, "OrientalMachete");
+		// NotPreferredTools
 		InsertIngredient(0, "Hatchet");
 		InsertIngredient(0, "WoodAxe");
 		InsertIngredient(0, "FirefighterAxe");
+		InsertIngredient(0, "FirefighterAxe_Black");
+		InsertIngredient(0, "FirefighterAxe_Green");
+		InsertIngredient(0, "Pickaxe");
+		InsertIngredient(0, "Iceaxe");
 		InsertIngredient(0, "HandSaw");
 		InsertIngredient(0, "Hacksaw");
+		InsertIngredient(0, "Sword");
+
 		m_IngredientAddHealth[0] = -10;// 0 = do nothing
         m_IngredientSetHealth[0] = -1; // -1 = do nothing
         m_IngredientAddQuantity[0] = 0;// 0 = do nothing
@@ -98,24 +105,69 @@ class salvageWires extends RecipeBase
 	override void Do(ItemBase ingredients[], PlayerBase player, array<ItemBase> results, float specialty_weight)
 	{
 		super.Do(ingredients, player, results, specialty_weight);
-		float Wet_Read;
-		jrdn_helpers.ReadWet(ingredients, Wet_Read);
 
-		if (GetGame() && GetGame().IsServer())
+		if (!GetGame() || !GetGame().IsServer())
+			return;
+
+		ItemBase tool    = ingredients[0];
+		ItemBase target  = ingredients[1];
+		ItemBase result0 = results[0];
+
+		// 1) Read wetness from the target
+		float wet_read;
+		array<ItemBase> wet_sources = new array<ItemBase>;
+		wet_sources.Insert(target);
+		jrdn_helpers.ReadWet(wet_sources, wet_read);
+
+		// 2) Preferred tool category (small blades for this recipe)
+		array<toolCategory> preferredTools = new array<toolCategory>;
+		preferredTools.Insert(toolCategory.TOOL_SMALL_BLADE);
+		preferredTools.Insert(toolCategory.TOOL_LARGE_BLADE);
+		toolCategory usedCat = GetToolCategory(tool);
+
+		// 3) Wet-driven punishment (cuts/bleed)
+		if (wet_read >= GameConstants.STATE_DAMP)
 		{
-			// write same wetness to all results
-			jrdn_helpers.ApplyWet(results, Wet_Read);
+			// Pull cut values directly from jrdn_settings
+			float baseChance             = jrdn_settings.cut.baseChance;
+			float wetnessScale           = jrdn_settings.cut.wetnessScale;
+			float healthPenaltyAbs       = jrdn_settings.cut.healthPenaltyAbs;
+			float preferredMultiplier    = jrdn_settings.tools.preferredMul;
+			float notPreferredMultiplier = jrdn_settings.tools.notPreferredMul;
 
-			// Optional: if you still want the “-10 damage when wet” punishment on the crafted items:
-			if (Wet_Read >= GameConstants.STATE_WET)
+			bool didCut = jrdn_helpers.PunishCut(player, tool, preferredTools, wet_read, baseChance, wetnessScale, healthPenaltyAbs, preferredMultiplier, notPreferredMultiplier);
+
+			if (didCut)
 			{
-				for (int i = 0; i < results.Count(); i++)
-				{
-					ItemBase r = results[i];
-					if (r) r.AddHealth("", "", -10.0);
-				}
+				string usedSelection;
+				jrdn_helpers.TryApplyBleedForTool(player, usedCat, usedSelection);
 			}
 		}
+
+		// 4) Result punishment (wetness + wrong tool)
+		float wetPenaltyAbs = 0.0;
+		if (wet_read >= GameConstants.STATE_DAMP)
+		{
+			wetPenaltyAbs = Math.Clamp(wet_read * jrdn_settings.result.wetPenaltyScale, 0.0, jrdn_settings.result.wetPenaltyMax);
+		}
+
+		int powerType = 0; // not applicable for wire salvage
+
+		jrdn_helpers.PunishResults(results, wet_read, GameConstants.STATE_DAMP, powerType, tool, preferredTools, wetPenaltyAbs, jrdn_settings.result.poweredPenaltyAbs,);
+
+		// 5) Inherit wetness from target
+		if (wet_read >= 0.0)
+		{
+			array<ItemBase> resArr = new array<ItemBase>;
+			resArr.Insert(result0);
+			jrdn_helpers.ApplyWet(resArr, wet_read);
+		}
+
+		// 6) Inherit health from target
+		float inheritHealth;
+		jrdn_helpers.ReadHealth(target, inheritHealth);
+		if (inheritHealth >= 0.0)
+			jrdn_helpers.ApplyHealth(result0, inheritHealth);
 	}
 };
 class salvagePCBCasing extends RecipeBase
@@ -146,7 +198,38 @@ class salvagePCBCasing extends RecipeBase
 		// -------------------------------------------------------------------------------------------------
 		// Ingredient 1
 		// -------------------------------------------------------------------------------------------------
-		InsertIngredient(0,"Screwdriver");
+		// PreferredTools
+		InsertIngredient(0, "Screwdriver");
+		InsertIngredient(0, "Crowbar");
+		InsertIngredient(0, "Pliers");
+
+		// NotPreferredTools
+		InsertIngredient(0, "SteakKnife");
+		InsertIngredient(0, "KitchenKnife");
+		InsertIngredient(0, "CombatKnife");
+		InsertIngredient(0, "HuntingKnife");
+		InsertIngredient(0, "Cleaver");
+		InsertIngredient(0, "AK_Bayonet");
+		InsertIngredient(0, "M9A1_Bayonet");
+		InsertIngredient(0, "SNAFU_Kabar");
+		InsertIngredient(0, "Msp_VorpalKnife");
+		InsertIngredient(0, "KukriKnife");
+		InsertIngredient(0, "FangeKnife");
+		InsertIngredient(0, "Mosin_Bayonet");
+		InsertIngredient(0, "SNAFU_SKS_Bayonet");
+		InsertIngredient(0, "Machete");
+		InsertIngredient(0, "CrudeMachete");
+		InsertIngredient(0, "OrientalMachete");
+		InsertIngredient(0, "Hatchet");
+		InsertIngredient(0, "WoodAxe");
+		InsertIngredient(0, "FirefighterAxe");
+		InsertIngredient(0, "FirefighterAxe_Black");
+		InsertIngredient(0, "FirefighterAxe_Green");
+		InsertIngredient(0, "Pickaxe");
+		InsertIngredient(0, "Iceaxe");
+		InsertIngredient(0, "HandSaw");
+		InsertIngredient(0, "Hacksaw");
+		InsertIngredient(0, "Sword");
 		m_IngredientAddHealth[0] = 0;// 0 = do nothing
         m_IngredientSetHealth[0] = -1; // -1 = do nothing
         m_IngredientAddQuantity[0] = -1;// 0 = do nothing
@@ -184,17 +267,90 @@ class salvagePCBCasing extends RecipeBase
 	override void Do(ItemBase ingredients[], PlayerBase player, array<ItemBase> results, float specialty_weight)
 	{
 		super.Do(ingredients, player, results, specialty_weight);
-		// 1) 50/50 pick
-		string pick;
-		jrdn_gps_utils.RandomPickTwo("jrdn_gps_pcb", "jrdn_gps_case", pick);
-		// 2) Inheritance from the dismantled device (ingredient 1)
-		float inheritRatio;
-		float inheritWet;
-		jrdn_gps_utils.ReadInheritedState(ItemBase.Cast(ingredients[1]), inheritRatio, inheritWet);
-		// 3) Keep placeholder PCB or spawn chosen item; always apply inheritance
-		jrdn_gps_utils.KeepOrSpawnResult(pick, results, player, inheritRatio, inheritWet, "jrdn_gps_pcb");
-		// 4) Shock if powered (no stamina), drops item in hands, message
-		jrdn_gps_utils.ShockIfPowered(ItemBase.Cast(ingredients[1]), player);
+
+		if (!GetGame() || !GetGame().IsServer())
+			return;
+
+		ItemBase tool    = ingredients[0];
+		ItemBase target  = ingredients[1];
+		ItemBase result0 = results[0];
+
+		// 1) Build result pool and pick a class
+		TStringArray resultPool = new TStringArray;
+		resultPool.Insert("jrdn_gps_pcb");
+		resultPool.Insert("jrdn_gps_case");
+		resultPool.Insert("jrdn_gps_wired_pcb");
+
+		string pickedClass;
+		jrdn_helpers.RandomResults_Single(resultPool, pickedClass);
+		if (pickedClass == "")
+			return;
+
+		// 2) Read wetness from ingredient[1]
+		float wet_read;
+		array<ItemBase> inheritWetFrom = new array<ItemBase>;
+		inheritWetFrom.Insert(target);
+		jrdn_helpers.ReadWet(inheritWetFrom, wet_read); // -1.0 if invalid
+
+		// 3) Preferred tools (utility for electronics)
+		array<toolCategory> preferredTools = new array<toolCategory>;
+		preferredTools.Insert(toolCategory.TOOL_UTILITY);
+
+		// 4) Spawn final result at feet with inheritance (health from target; wetness applied below)
+		ItemBase finalResult = jrdn_helpers.KeepOrSpawnRandomResult(pickedClass, results, player, "", inheritWetFrom, target);
+		if (!finalResult)
+			return;
+
+		// Ensure wetness is applied to the actual spawned item
+		if (wet_read >= 0.0)
+		{
+			array<ItemBase> wetSingle = new array<ItemBase>;
+			wetSingle.Insert(finalResult);
+			jrdn_helpers.ApplyWet(wetSingle, wet_read);
+		}
+
+		// 5) Detect power and punish shock if powered
+		ItemBase foundPower;
+		int powerType = jrdn_helpers.DetectPoweredIngredient(target, foundPower);
+
+		if (powerType > 0)
+		{
+			bool isCarType = true; // triggers fixed-target branch for car/truck inside PunishShock
+
+			float base9V    		= jrdn_settings.power.base9V;
+			float baseCar   		= jrdn_settings.power.baseCar;
+			float baseTruck 		= jrdn_settings.power.baseTruck;
+			float preferredMul      = jrdn_settings.tools.preferredMul;
+			float notPreferredMul   = jrdn_settings.tools.notPreferredMul;
+			float notPreferredFixed = jrdn_settings.tools.notPreferredFixed;
+
+			jrdn_helpers.PunishShock(player, wet_read, powerType, tool, preferredTools, isCarType, base9V, baseCar, baseTruck, preferredMul, notPreferredMul, notPreferredFixed);
+		}
+
+		// 6) Punish result condition for wetness + wrong tool
+		float wetPenaltyAbs = 0.0;
+		if (wet_read >= GameConstants.STATE_DAMP)
+		{
+			wetPenaltyAbs = Math.Clamp(wet_read * jrdn_settings.result.wetPenaltyScale,0.0,jrdn_settings.result.wetPenaltyMax);
+		}
+
+		array<ItemBase> punishList = new array<ItemBase>;
+		punishList.Insert(finalResult);
+
+		jrdn_helpers.PunishResults(punishList, wet_read, GameConstants.STATE_DAMP, powerType, tool, preferredTools, wetPenaltyAbs, jrdn_settings.result.poweredPenaltyAbs, jrdn_settings.result.wrongToolPenaltyAbs);
+
+		// 7) Optional ruin flags from settings
+		if (finalResult)
+		{
+			if (powerType == 2 && jrdn_settings.result.ruinOnCarBattery)
+			{
+				finalResult.SetHealth("", "", 0.0);
+			}
+			else if (powerType == 3 && jrdn_settings.result.ruinOnTruckBattery)
+			{
+				finalResult.SetHealth("", "", 0.0);
+			}
+		}
 	}
 };
 class craftWiredPCB extends RecipeBase
